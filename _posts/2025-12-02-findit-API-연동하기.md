@@ -16,19 +16,24 @@ tags: [findit, backend, api]
 11번가는 기본적으로 <a href="https://openapi.11st.co.kr/openapi/OpenApiFrontMain.tmall" target="_blank">11번가 OpenAPI</a>를 제공한다. 다만 대부분의 모던 서비스들이 JSON 형식으로 데이터를 제공하는 반면, 11번가는 XML 형식으로 데이터를 제공한다. `Node.js`에서 데이터를 처리하기 위해서는 XML을 JSON 형식으로 변환하여 사용하는 것이 편리해 보인다. 또한 다른 쇼핑몰들의 데이터 처리 코드의 재활용을 위해서라도 JSON으로 형식을 변환할 필요가 있다. `xml2js`라는 라이브러리를 이용하여 XML을 JSON 형식으로 간편하게 바꿀 수 있다. 
 
 ![11st](/assets/img/findit/3-11st-api-delay.png){: w="500"}
+_아뿔싸_
+
 그렇게 API를 사용하기 위한 첫 단계로 API 키를 발급받기 위해서 위 11번가 OpenAPI 홈페이지에 접속했는데, 문제가 생겼다. 11번가에서는 API 키를 발급받기 위해서 계정을 '개인셀러'로 전환해야 할 필요가 있다. 내 기존 계정은 소셜 로그인을 이용하고 있었는데, 소셜 로그인 계정은 개인셀러로 전환할 수 없었다. 그래서 새로운 자체 계정을 만들었더니, 이미 기존의 소셜 계정에 본인인증이 되어있어 이용할 수 없었다. 기존의 소셜 계정을 탈퇴하고 새로운 계정에서 본인인증을 시도하니, 일반회원(구매회원)의 경우 11번가 계정 탈퇴 후 30일간 재인증이 불가하다고 한다... 결론은 30일간 11번가의 API키를 발급받을 수 없게 되어버렸다. 
 
 억울하지만 1개월 후에 API를 연동하기로 하고, 네이버 쇼핑 API 기능 구현으로 넘어갔다.
 
 ### 네이버
+
 | **요청 URL** | **반환 형식** |
-| ------------ | ------------- |
+| - | - |
 | `https://openapi.naver.com/v1/search/shop.xml` | XML |
 | `https://openapi.naver.com/v1/search/shop.json` | JSON |
 
 네이버는 다음과 같이 요청하는 URL에 따라 XML과 JSON 형식 모두 데이터를 제공한다. 
 
 ![naver_api](/assets/img/findit/3-naver-api-registration.png){: w="500"}
+_네이버 API 등록 과정_
+
 <a href="https://developers.naver.com/main/" target="_blank">네이버 개발자 센터</a>에서 `Application - 애플리케이션 등록` 탭으로 가면 API 이용을 위한 애플리케이션 등록 신청이 가능하다. 위 사진처럼 사용 API는 검색, 환경은 WEB 환경을 추가하여 등록하였다. 클라이언트 아이디와 클라이언트 시크릿 키를 발급받을 수 있었다.
 
 
@@ -54,7 +59,10 @@ try {
 }
 ```
 다음과 같이 백엔드 서버 코드를 구현했다. `naverApiUrl` 변수에 네이버 쇼핑 API 요청 Url, 쿼리(검색어), 그리고 검색 설정 몇가지를 넣었다. 헤더에는 네이버 쇼핑 API 요청 양식에 맞게 클라이언트 아이디와 클라이언트 시크릿 키를 넣었다. get 요청에 대한 응답을 `naverResponse`에 담아, `data` 프로퍼티 값을 `naverResData`에 담았다. `productResult` 배열은 이후 다른 쇼핑몰들의 응답까지 모아 한번에 담아둘 변수이다.
+
 ![naver_api_result](/assets/img/findit/3-naver-api-test.png){: w="500"}
+_네이버 쇼핑 API로 상품검색 요청을 보낸 결과_
+
 결과는 위 사진과 같이, 요청에 성공하여 상품 정보를 받아올 수 있었다! `total`과 `start`, `display`와 같이 검색 정보에 대한 프로퍼티가 몇개 있고, 실제 상품 정보는 `items` 프로퍼티 내에 배열로 존재하였다. 이 데이터에서 필요한 데이터를 몇가지를 뽑아 `res.json`을 이용해 팝업으로 보내면 실제 브라우저 익스텐션 팝업에 검색결과가 뜰 것이다. 여기까지 하면 핵심 기능인 '팝업에서 요청을 보내면, 백엔드 서버가 쇼핑몰에 상품 검색을 요청하여, 데이터를 팝업에 보내 목록을 띄운다.'가 구현되는 것이다.
 
 
@@ -75,7 +83,9 @@ console.log(naverResData);
 res.json({ results: productResult });
 ```
 `naverResData`에 요청 결과의 `data.items` 프로퍼티를 바로 담는 것으로 수정했다. `productResult` 배열에 `naverResData`의 프로퍼티들을 가져와 객체 리터럴로 데이터를 집어넣었다. 아쉽게도 네이버 쇼핑 API의 경우 배송비 데이터를 반환해주지 않아 팝업으로 보낼 수 없었다. 해당 페이지만 가볍게 스크래핑하여 배송비 데이터를 넣는 방식으로 구현할 수도 있었겠지만, 일단은 MVP 구현에만 집중하여 이대로 두기로 한다. `res.json({ results: productResult });`을 통해 팝업으로 검색결과를 반환해주면 다음 사진처럼 브라우저 익스텐션 팝업에 목록이 뜨게 된다.
+
 ![popup](/assets/img/findit/3-popup.png){: w="500"}
+_야호_
 
 
 ## 마무리하며
